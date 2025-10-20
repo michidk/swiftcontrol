@@ -27,6 +27,14 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Install nested package dependencies
+        run: |
+          cd keypress_simulator/packages/keypress_simulator && flutter pub get
+          cd ../keypress_simulator_platform_interface && flutter pub get
+          cd ../keypress_simulator_macos && flutter pub get
+          cd ../keypress_simulator_windows && flutter pub get
+          cd ../../../../accessibility && flutter pub get
+
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
 
