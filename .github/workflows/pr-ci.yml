@@ -3,15 +3,102 @@ name: "PR CI Build"
 on:
   pull_request:
     branches: [ main ]
-    types: [ opened, synchronize, reopened ]
+  push:
+    branches: [ main ]
 
 env:
   FLUTTER_VERSION: 3.35.5
 
 jobs:
+  # Setup job for Unix-based builds (Ubuntu/macOS) 
+  setup-unix:
+    name: Setup Flutter (Unix)
+    runs-on: ubuntu-latest
+    outputs:
+      deps-cache-key: ${{ steps.deps-cache.outputs.cache-hit }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Cache Dependencies
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Install nested package dependencies
+        run: |
+          cd keypress_simulator/packages/keypress_simulator && flutter pub get
+          cd ../keypress_simulator_platform_interface && flutter pub get
+          cd ../keypress_simulator_macos && flutter pub get
+          cd ../keypress_simulator_windows && flutter pub get
+          cd ../../../../accessibility && flutter pub get
+
+  # Setup job for Windows builds
+  setup-windows:
+    name: Setup Flutter (Windows)  
+    runs-on: windows-latest
+    outputs:
+      deps-cache-key: ${{ steps.deps-cache.outputs.cache-hit }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Cache Dependencies
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            %LOCALAPPDATA%\Pub\Cache
+            .dart_tool\
+            keypress_simulator\packages\*\.dart_tool\
+            accessibility\.dart_tool\
+          key: flutter-deps-windows-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-windows-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-windows-
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Install nested package dependencies
+        shell: pwsh
+        run: |
+          cd keypress_simulator\packages\keypress_simulator; flutter pub get
+          cd ..\keypress_simulator_platform_interface; flutter pub get
+          cd ..\keypress_simulator_macos; flutter pub get
+          cd ..\keypress_simulator_windows; flutter pub get
+          cd ..\..\..\..\accessibility; flutter pub get
+
   analyze:
     name: Analyze & Test
     runs-on: ubuntu-latest
+    needs: setup-unix
     
     steps:
       - name: Checkout Repository
@@ -23,6 +110,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
 
       - name: Install Dependencies
         run: flutter pub get
@@ -47,7 +147,7 @@ jobs:
   build-android:
     name: Build Android
     runs-on: ubuntu-latest
-    needs: analyze
+    needs: setup-unix
     
     steps:
       - name: Checkout Repository
@@ -59,6 +159,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
 
       - name: Install Dependencies
         run: flutter pub get
@@ -80,7 +193,7 @@ jobs:
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
-    needs: analyze
+    needs: setup-unix
     
     steps:
       - name: Checkout Repository
@@ -92,6 +205,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
 
       - name: Install Dependencies
         run: flutter pub get
@@ -109,7 +235,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
-    needs: analyze
+    needs: setup-windows
     
     steps:
       - name: Checkout Repository
@@ -121,6 +247,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            %LOCALAPPDATA%\Pub\Cache
+            .dart_tool\
+            keypress_simulator\packages\*\.dart_tool\
+            accessibility\.dart_tool\
+          key: flutter-deps-windows-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-windows-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-windows-
 
       - name: Install Dependencies
         run: flutter pub get
@@ -143,7 +282,7 @@ jobs:
   build-macos:
     name: Build macOS
     runs-on: macos-latest
-    needs: analyze
+    needs: setup-unix
     
     steps:
       - name: Checkout Repository
@@ -155,6 +294,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
 
       - name: Install Dependencies
         run: flutter pub get
@@ -177,7 +329,7 @@ jobs:
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: analyze
+    needs: setup-unix
     
     steps:
       - name: Checkout Repository
@@ -194,6 +346,19 @@ jobs:
           channel: 'stable'
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Restore Dependencies Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool/
+            keypress_simulator/packages/*/. dart_tool/
+            accessibility/.dart_tool/
+          key: flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-${{ env.FLUTTER_VERSION }}
+          restore-keys: |
+            flutter-deps-unix-${{ hashFiles('**/pubspec.lock') }}-
+            flutter-deps-unix-
 
       - name: Install Dependencies
         run: flutter pub get
